@@ -17,27 +17,31 @@ public class CompilationEngine {
 	private int currentTokenIndex;
 	private ArrayList<String> OP = new ArrayList<>();
 	private ArrayList<String> UN = new ArrayList<>();
-	
 
 	private SymbolTable sym;
 	private String classSymbolType = "";
 	private String classSymbolKind = "";
 	private String classSymbolName = "";
-	
 
 	private String subSymbolType = "";
 	private String subSymbolKind = "";
 	private String subSymbolName = "";
+
+	private String subroutineName = "";
+	private String subroutineCallClass = "";
+	private String subroutineCallMethod = "";
 	
-	private String subroutineName="";
-	private String subroutineCallClass="";
-	private String subroutineCallMethod="";
-	
+	private boolean isVoid = false;
+
 	private VMWriter vm;
+
+	private int expressionCount = 0;
+
+	private String className = "";
 	
-	private int expressionCount=0;
-	
-	private String className="";
+	private int whileLabelCount=0;
+	private int ifLabelCount=-1;
+
 	public CompilationEngine(String input) throws FileNotFoundException, UnsupportedEncodingException {
 
 		// operands
@@ -65,29 +69,27 @@ public class CompilationEngine {
 			int dot = input.indexOf('.');
 
 			className = input.substring(0, dot);
-			
-			//xml for debug
+
+			// xml for debug
 			String outputFile = className + ".xml";
 			writer = new PrintWriter(outputFile, "UTF-8");
 
 			vm = new VMWriter(className);
-			
+
 			compileClass();
-	
-			
+
 //			sym.printClassSymbol();
-			
+
 			vm.close();
 
 		}
 
-		
 	}
 
 	// A class - className { classVarDec, subrountineDec }
 	private void compileClass() {
 
-		//empty class and sub
+		// empty class and sub
 		sym = new SymbolTable();
 
 		currentTokenIndex = 0;
@@ -110,14 +112,11 @@ public class CompilationEngine {
 			j++;
 		}
 
-
-		
 		// compile the rest of the class
 		// starts with keywords and ends with semicolon before functions/methods
 
 		while (currentToken.equals("static") || currentToken.equals("field")) {
 
-		
 			compileClassVarDec();
 
 			currentTokenIndex++;
@@ -156,78 +155,63 @@ public class CompilationEngine {
 
 		while (!currentToken.equals(";")) {
 
-			
 			if (tknzr.tokenType(currentToken).equals("identifier")) {
 
 				// if previous token is keyword static/field then currentToken is type
 				// variables always start with keyword
 
 				currentTokenIndex--;
-				currentToken= tokens.get(currentTokenIndex);
-				
-				
-				
-				if (tknzr.tokenType(currentToken).equals("field")||tknzr.tokenType(currentToken).equals("static")) {
+				currentToken = tokens.get(currentTokenIndex);
+
+				if (tknzr.tokenType(currentToken).equals("field") || tknzr.tokenType(currentToken).equals("static")) {
 
 					classSymbolType = currentToken;
 
-
 					printToken();
-					
+
 					currentTokenIndex++;
-					currentToken= tokens.get(currentTokenIndex);
-					
+					currentToken = tokens.get(currentTokenIndex);
 
 				} else {
-					
+
 					currentTokenIndex++;
-					currentToken= tokens.get(currentTokenIndex);
+					currentToken = tokens.get(currentTokenIndex);
 
 					classSymbolName = currentToken;
-					
-					
-					//define new symbol in class symbol table
+
+					// define new symbol in class symbol table
 					int i = sym.varCount(classSymbolKind);
-					
-					writer.println("<classVar_"+classSymbolKind+"_"+classSymbolType+"_"+i+">" + currentToken + "</classVar_"+classSymbolKind+"_"+classSymbolType+"_"+i+">");
-	
+
+					writer.println("<classVar_" + classSymbolKind + "_" + classSymbolType + "_" + i + ">" + currentToken
+							+ "</classVar_" + classSymbolKind + "_" + classSymbolType + "_" + i + ">");
+
 					sym.define(classSymbolName, classSymbolType, classSymbolKind, i);
-					
-					
-					
+
 				}
 
-			
-				
 			} else if (tknzr.tokenType(currentToken).equals("keyword")) {
-				
-				if (currentToken.equals("static")||currentToken.equals("field")) {
-					
+
+				if (currentToken.equals("static") || currentToken.equals("field")) {
+
 					classSymbolKind = currentToken;
 
 					printToken();
 				} else {
-					
+
 					classSymbolType = currentToken;
 
 					printToken();
 				}
-				
+
 			} else {
 
 				printToken();
 			}
 
-			
-			
-			
 			currentTokenIndex++;
 			currentToken = tokens.get(currentTokenIndex);
 		}
 
-		
-		
-		
 		printToken();
 
 		writer.println("</classVarDec>");
@@ -236,49 +220,52 @@ public class CompilationEngine {
 
 	private void compileSubroutineDec() {
 
-		//reset subSym when compiling new subroutine
+		
+		isVoid = false;
+		// reset subSym when compiling new subroutine
 		sym.startSubroutine();
-		sym.define("this", className, "argument", 0);
-		
-		
-		
-		
+//		sym.define("this", className, "argument", 0);
+
 		writer.println("<subroutineDec>");
 
 		while (!currentToken.equals("(")) {
 
-			
-			if(tknzr.tokenType(currentToken).equals("identifier")) {
-				
+			if (tknzr.tokenType(currentToken).equals("identifier")) {
+
 				subroutineName = currentToken;
+
+				writer.println("<subroutineName>" + currentToken + "</subroutineName>");
+
+			} else if (tknzr.tokenType(currentToken).equals("keyword")){
 				
-				writer.println("<subroutineName>"+currentToken+"</subroutineName>");
-			
+				if (currentToken.equals("void")) {
+					isVoid = true;
+				}
+				
+				printToken();
 			} else {
+				
 				printToken();
 			}
-			
-			
 
 			currentTokenIndex++;
 			currentToken = tokens.get(currentTokenIndex);
 		}
 
 		compileParameterList();
-		
-		vm.writeFunction(subroutineName, sym.varCount(subSymbolKind));
-		
-		compileSubroutineBody();
 
 		
 		
+		
+		compileSubroutineBody();
+
 		writer.println("</subroutineDec>");
 
 	}
 
 	private void compileParameterList() {
 
-		//(
+		// (
 		writer.print("<" + tknzr.tokenType(currentToken) + ">");
 		writer.print(" " + currentToken + " ");
 		writer.print("</" + tknzr.tokenType(currentToken) + ">");
@@ -289,59 +276,51 @@ public class CompilationEngine {
 		writer.println();
 		writer.println("<parameterList>");
 
-		
-	
-		
 		while (!currentToken.equals(")")) {
 
 			if (tknzr.tokenType(currentToken).equals("identifier")) {
-				
-				//currentToken is type if previous token is symbol else is name
-				
+
+				// currentToken is type if previous token is symbol else is name
+
 				currentTokenIndex--;
-				currentToken= tokens.get(currentTokenIndex);
-				
+				currentToken = tokens.get(currentTokenIndex);
+
 				if (tknzr.tokenType(currentToken).equals("symbol")) {
-					
+
 					subSymbolType = currentToken;
-					
+
 					printToken();
-					
+
 					currentTokenIndex++;
-					currentToken= tokens.get(currentTokenIndex);
-					
-					
+					currentToken = tokens.get(currentTokenIndex);
+
 				} else {
-					
+
 					currentTokenIndex++;
-					currentToken= tokens.get(currentTokenIndex);
-					
+					currentToken = tokens.get(currentTokenIndex);
+
 					subSymbolName = currentToken;
 					subSymbolKind = "argument";
-					
+
 					int i = sym.varCount(subSymbolKind);
-					
-					
-					
-					writer.println("<subVar_"+subSymbolKind+"_"+subSymbolType+"_"+i+">"+currentToken+"</subVar_"+subSymbolKind+"_"+subSymbolType+"_"+i+">");
-	
+
+					writer.println("<subVar_" + subSymbolKind + "_" + subSymbolType + "_" + i + ">" + currentToken
+							+ "</subVar_" + subSymbolKind + "_" + subSymbolType + "_" + i + ">");
+
 					sym.define(subSymbolName, subSymbolType, subSymbolKind, i);
-					
-		//			sym.printSubSymbol();
+
+					// sym.printSubSymbol();
 				}
-				
-				
-			} else if (tknzr.tokenType(currentToken).equals("keyword")){
-				
+
+			} else if (tknzr.tokenType(currentToken).equals("keyword")) {
+
 				subSymbolType = currentToken;
 				printToken();
-				
+
 			} else {
-				
+
 				printToken();
 			}
-			
-			
 
 			currentTokenIndex++;
 			currentToken = tokens.get(currentTokenIndex);
@@ -349,7 +328,7 @@ public class CompilationEngine {
 
 		writer.println("</parameterList>");
 
-		//)
+		// )
 		printToken();
 
 	}
@@ -380,6 +359,8 @@ public class CompilationEngine {
 			currentToken = tokens.get(currentTokenIndex);
 		}
 
+		vm.writeFunction(subroutineName, sym.varCount("local"));
+
 		// statements
 		compileStatements();
 
@@ -387,67 +368,67 @@ public class CompilationEngine {
 
 		printToken();
 
+		
+		
 		writer.println("</subroutineBody>");
 
 	}
 
-	// TODO - 
+	// TODO -
 	private void compileVarDec() {
 
 		writer.println("<varDec>");
 
-		//local variables are var
-		subSymbolKind = "var";
-		
+		// local variables are var
+		subSymbolKind = "local";
+
 		while (!currentToken.equals(";")) {
 
 			if (tknzr.tokenType(currentToken).equals("keyword")) {
-				
-				
+
 				if (!currentToken.equals("var")) {
-					//after var
+					// after var
 					subSymbolType = currentToken;
 					printToken();
-					
+
 				} else {
-					
-					//var
+
+					// var
 					printToken();
 				}
-				
 
 			} else if (tknzr.tokenType(currentToken).equals("identifier")) {
-				
+
 				currentTokenIndex--;
 				currentToken = tokens.get(currentTokenIndex);
-				
+
 				if (currentToken.equals("var")) {
-					
+
 					currentTokenIndex++;
 					currentToken = tokens.get(currentTokenIndex);
-					
+
 					subSymbolType = currentToken;
-					
-					
+
 					printToken();
-					
+
 				} else {
-					
+
 					currentTokenIndex++;
 					currentToken = tokens.get(currentTokenIndex);
-					
+
 					subSymbolName = currentToken;
-					
+
 					int i = sym.varCount(subSymbolKind);
 
-					writer.println("<subVar_"+subSymbolKind+"_"+subSymbolType+"_"+i+">"+currentToken+"</subVar_"+subSymbolKind+"_"+subSymbolType+"_"+i+">");
-	
+					writer.println("<subVar_" + subSymbolKind + "_" + subSymbolType + "_" + i + ">" + currentToken
+							+ "</subVar_" + subSymbolKind + "_" + subSymbolType + "_" + i + ">");
+
 					sym.define(subSymbolName, subSymbolType, subSymbolKind, i);
-					
+
 				}
-				
+
 			} else {
-				
+
 				printToken();
 			}
 
@@ -455,15 +436,9 @@ public class CompilationEngine {
 			currentToken = tokens.get(currentTokenIndex);
 		}
 
-		
-		
-		
-		
 		printToken();
 		writer.println("</varDec>");
 	}
-	
-	
 
 	private void compileStatements() {
 
@@ -503,14 +478,38 @@ public class CompilationEngine {
 
 	private void compileLet() {
 		writer.println("<letStatement>");
-
+		
+		boolean isSubSym = false;
+		boolean isClassSym = false;
+		
 		// let
 		printToken();
-
 		currentTokenIndex++;
 		currentToken = tokens.get(currentTokenIndex);
-		// varName
-		printToken();
+
+		// VM varName
+		if (sym.getClassSymbol().containsKey(currentToken)) {
+
+			isClassSym = true;
+			classSymbolKind = sym.kindOf(currentToken);
+			classSymbolType = sym.typeOf(currentToken);
+			int i = sym.indexOf(currentToken);
+			
+			writer.println("<classVar_"+classSymbolKind+"_"+classSymbolType+"_"+i +">"+
+					currentToken + "</classVar_"+classSymbolKind+"_"+classSymbolType+"_"+i+">");
+			
+		} else if (sym.getSubSymbol().containsKey(currentToken)) {
+					
+			isSubSym = true;
+			subSymbolKind = sym.kindOf(currentToken);
+			subSymbolType = sym.typeOf(currentToken);
+			int i = sym.indexOf(currentToken);
+			subSymbolName = currentToken;
+			
+			writer.println("<classVar_"+subSymbolKind+"_"+subSymbolType+"_"+i +">"+
+					currentToken + "</classVar_"+subSymbolKind+"_"+subSymbolType+"_"+i+">");
+		}
+		
 
 		currentTokenIndex++;
 		currentToken = tokens.get(currentTokenIndex);
@@ -539,6 +538,22 @@ public class CompilationEngine {
 
 		compileExpression();
 
+		//pop expression return value from stack to var
+		if (isSubSym) {
+			
+			if (sym.kindOf(subSymbolName).equals("local")) {
+				
+				vm.writePop("local", sym.indexOf(subSymbolName));
+				
+			} else {
+				
+				vm.writePop("argument", sym.indexOf(subSymbolName));
+			}
+		}
+		
+		//TODO  - pop expression return value from stack to global var
+		
+		
 		printToken();
 
 		writer.println("</letStatement>");
@@ -547,6 +562,10 @@ public class CompilationEngine {
 
 	private void compileIf() {
 
+		ifLabelCount++;
+		
+		int count = ifLabelCount;
+		
 		writer.println("<ifStatement>");
 
 		// if
@@ -567,6 +586,9 @@ public class CompilationEngine {
 
 				compileExpression();
 
+				//VM - negate condition
+//				vm.writeArithmetic("not");
+				
 				currentTokenIndex--;
 				currentToken = tokens.get(currentTokenIndex);
 			}
@@ -583,7 +605,18 @@ public class CompilationEngine {
 		currentToken = tokens.get(currentTokenIndex);
 		// {
 		printToken();
-
+		
+		
+		//VM if else command
+		vm.writeIf("IF_TRUE"+ifLabelCount);
+		vm.writeGoto("IF_FALSE"+ifLabelCount);
+		
+		
+		//VM if true
+		vm.writeLabel("IF_TRUE"+ifLabelCount);
+		
+		
+		
 		compileStatements();
 
 		// }
@@ -593,7 +626,7 @@ public class CompilationEngine {
 		currentTokenIndex++;
 		currentToken = tokens.get(currentTokenIndex);
 
-		// if else
+		// else
 		if (currentToken.equals("else")) {
 
 			// else
@@ -606,8 +639,16 @@ public class CompilationEngine {
 			currentTokenIndex++;
 			currentToken = tokens.get(currentTokenIndex);
 
+			
+			//VM goto
+			vm.writeGoto("IF_END"+count);
+			//VM if FALSE
+			vm.writeLabel("IF_FALSE"+count);
+	
 			compileStatements();
 
+			
+			
 			// }
 			printToken();
 
@@ -618,6 +659,9 @@ public class CompilationEngine {
 
 		}
 
+		//VM end
+		vm.writeLabel("IF_END"+count);
+		
 		writer.println("</ifStatement>");
 
 	}
@@ -638,6 +682,10 @@ public class CompilationEngine {
 		currentTokenIndex++;
 		currentToken = tokens.get(currentTokenIndex);
 
+		//VM
+		vm.writeLabel("WHILE_EXP"+whileLabelCount);
+		
+		
 		// (
 		printToken();
 
@@ -646,6 +694,10 @@ public class CompilationEngine {
 
 		compileExpression();
 
+		
+		//negate condition
+		vm.writeArithmetic("not");
+		
 		// )
 		printToken();
 
@@ -654,12 +706,22 @@ public class CompilationEngine {
 		currentToken = tokens.get(currentTokenIndex);
 		printToken();
 
+		//if-goto label
+		vm.writeIf("WHILE_END"+whileLabelCount);
+		
+		int count = whileLabelCount;
+		
 		compileStatements();
+		
+		vm.writeGoto("WHILE_EXP"+count);
 
+		vm.writeLabel("WHILE_END"+count);
 		// }
 		printToken();
 
 		writer.println("</whileStatement>");
+		
+		whileLabelCount++;
 
 	}
 
@@ -667,47 +729,80 @@ public class CompilationEngine {
 
 		writer.println("<doStatement>");
 
-		//do
+		// do
 		printToken();
 		currentTokenIndex++;
 		currentToken = tokens.get(currentTokenIndex);
-		
-		//className
+
+		// varName
 //		printToken();
-		writer.println("<subroutineCallClass>"+currentToken+"</subroutineCallClass>");	
-		className = currentToken;	
-		
-		currentTokenIndex++;
-		currentToken = tokens.get(currentTokenIndex);
+		//if varName is symbol then push
+		if(sym.getSubSymbol().containsKey(currentToken)) {
+			
+			if (sym.kindOf(currentToken).equals("local")) {
+				
+				
+				writer.println("<subVar_"+sym.kindOf(currentToken)+"_"+sym.indexOf(currentToken) + currentToken
+						+ "</subVar_"+sym.kindOf(currentToken)+"_"+sym.indexOf(currentToken));
+				
+				vm.writePush("local", sym.indexOf(currentToken));
+			} else {
+				
+				writer.println("<subVar_"+sym.kindOf(currentToken)+"_"+sym.indexOf(currentToken) + currentToken
+						+ "</subVar_"+sym.kindOf(currentToken)+"_"+sym.indexOf(currentToken));
+				
+				vm.writePush("argument", sym.indexOf(currentToken));
+			}
+			
+		} else {
+			
+			writer.println("<subroutineCallClass>" + currentToken + "</subroutineCallClass>");
+			className = currentToken;
+			
+
+		}
 	
-		//.
+		
+		currentTokenIndex++;
+		currentToken = tokens.get(currentTokenIndex);
+
+		
+
+		
+		if (currentToken.equals(".")) {
+			
+			writer.println("classCall");
+			
+			
+			
+		} else {
+			
+			writer.println("subRoutineCall");
+		}
+		
+		
 		printToken();
+	
 		currentTokenIndex++;
 		currentToken = tokens.get(currentTokenIndex);
 		
-		//method
+		
+		
+		
+		// method
 //		printToken();
-		writer.println("<subroutineCallMethod>"+currentToken+"</subroutineCallMethod>");
-		subroutineCallMethod = currentToken;	
+		writer.println("<subroutineCallMethod>" + currentToken + "</subroutineCallMethod>");
+		subroutineCallMethod = currentToken;
 		currentTokenIndex++;
 		currentToken = tokens.get(currentTokenIndex);
 
-		/*
-		 * while (!currentToken.equals("(")) {
-		 * 
-		 * 
-		 * printToken();
-		 * 
-		 * currentTokenIndex++; currentToken = tokens.get(currentTokenIndex); }
-		 */
-
-		//(
+		// (
 		printToken();
 		currentTokenIndex++;
 		currentToken = tokens.get(currentTokenIndex);
 
 		expressionCount = 0;
-		
+
 		compileExpressionList();
 
 		while (!currentToken.equals(";")) {
@@ -718,16 +813,18 @@ public class CompilationEngine {
 			currentToken = tokens.get(currentTokenIndex);
 
 		}
+		
+		//;
 		printToken();
 
-		//every VM method must return something - 
-		//do - return value not relevant
-		//pop off return value to temp 0 from the stack because we don't want the return value
+		// every VM method must return something -
+		// do - return value not relevant
+		// pop off return value to temp 0 from the stack because we don't want the
+		// return value
 		vm.writeCall(className, subroutineCallMethod, expressionCount);
-		//do return value stores at temp 0 - 
+		// do return value stores at temp 0 -
 		vm.writePop("temp", 0);
-		
-		
+
 		writer.println("</doStatement>");
 
 	}
@@ -750,21 +847,25 @@ public class CompilationEngine {
 
 		printToken();
 
-		//if current function is void - return 0
-		//if not return the retuen value
-		vm.writePush("constant", 0);
-				
-		vm.writeReturn();
+		// if current function is void - return 0
+		//TODO if not return the retuen value
+		if (isVoid) {
+			
+			vm.writePush("constant", 0);
+		}
 		
+		
+
+		vm.writeReturn();
+
 		writer.println("</returnStatement>");
 
 	}
 
 	private void compileExpression() {
 
+		String expOp = "";
 
-		String expOp="";
-		
 		writer.println("<expression>");
 
 		compileTerm();
@@ -774,15 +875,14 @@ public class CompilationEngine {
 
 		while (!currentToken.equals(")") && !currentToken.equals(";") && !currentToken.equals("]")) {
 
-			
 			if (OP.contains(currentToken)) {
 
 				printToken();
-				
-				//VMCommands
-				expOp=currentToken;
-				
 
+				// VMCommands
+				expOp = currentToken;
+
+				
 			} else if (currentToken.equals(",")) {
 
 				break;
@@ -796,54 +896,140 @@ public class CompilationEngine {
 			currentToken = tokens.get(currentTokenIndex);
 		}
 
-		vm.writeArithmetic(expOp);
 		
+		vm.writeArithmetic(expOp);
+
 		writer.println("</expression>");
 
 	}
-	
-	
-	
 
 	private void compileTerm() {
 
-		
+		boolean isNot =false;
+		boolean isNeg = false;
+
 		writer.println("<term>");
 
-		printToken();
 		
-		//VM commands
-		if(tknzr.tokenType(currentToken).equals("integerConstant")) {
-			
+
+		// VM commands
+		if (tknzr.tokenType(currentToken).equals("integerConstant")) {
+
 			vm.writePush("constant", Integer.parseInt(currentToken));
+			printToken();
+
+		} else  if (tknzr.tokenType(currentToken).equals("identifier")) {
+			
+			
+			
+			if (sym.getClassSymbol().containsKey(currentToken)) {
+			
+				classSymbolKind = sym.kindOf(currentToken);
+				classSymbolType = sym.typeOf(currentToken);
+				int i = sym.indexOf(currentToken);
+				
+				writer.println("<classVar_"+classSymbolKind+"_"+classSymbolType+"_"+i +">"+
+						currentToken + "</classVar_"+classSymbolKind+"_"+classSymbolType+"_"+i+">");
+				
+				//TODO push class symbol to the stack
+				
+			} else if (sym.getSubSymbol().containsKey(currentToken)) {
+				
+
+				subSymbolKind = sym.kindOf(currentToken);
+				subSymbolType = sym.typeOf(currentToken);
+				subSymbolName = currentToken;
+				int i = sym.indexOf(currentToken);
+				
+				writer.println("<subVar_"+subSymbolKind+"_"+subSymbolType+"_"+i +">"+
+						currentToken + "</subVar_"+subSymbolKind+"_"+subSymbolType+"_"+i+">");
+
+				if (sym.kindOf(currentToken).equals("local")) {
+					
+					vm.writePush("local", sym.indexOf(subSymbolName));
+				} else {
+					
+					vm.writePush("argument", sym.indexOf(subSymbolName));
+				}
+				
+				
+				//subroutineCall
+			} else {
+				
+				subroutineCallClass = currentToken;
+				writer.println("<subroutineCallClass>"+currentToken+"</subroutineCallClass>");
+				
+			}
+		} else if (tknzr.tokenType(currentToken).equals("keyword")){
+			
+			if (currentToken.equals("true")) {
+				
+				//1 : true 0 : false
+				vm.writePush("constant", 0);
+				vm.writeArithmetic("not");
+				
+			} else if (currentToken.equals("false")) {
+				
+				vm.writePush("constant", 0);
+			}
+			
+		} else {
+			
+			
+			printToken();
 		}
 		
-		
-		
-		
-		
-		//XML output
+		if (currentToken.equals("~")) {
+			
+			isNot = true;
+		}
+	
+		// TODO save negation
+		if (currentToken.equals("-")) {
+
+			isNeg = true;
+
+		}
+
+		// XML output
 		if (tknzr.tokenType(currentToken).equals("identifier")) {
 
-			
 			currentTokenIndex++;
 			currentToken = tokens.get(currentTokenIndex);
 
 			// subroutineCall
 			if (currentToken.equals(".")) {
 
+				
+
 				while (!currentToken.equals(";")) {
 
+					
+
+					if (tknzr.tokenType(currentToken).equals("identifier")) {
+						
+					
+						subroutineCallMethod = currentToken;
+					}
+					
+					
 					if (currentToken.equals("(")) {
 
+						
+						
 						// (
 						printToken();
 
 						currentTokenIndex++;
 						currentToken = tokens.get(currentTokenIndex);
 
+						expressionCount=0;
+						
 						compileExpressionList();
 
+						
+						vm.writeCall(subroutineCallClass, subroutineCallMethod, expressionCount);
+						
 						printToken();
 						break;
 					}
@@ -868,6 +1054,8 @@ public class CompilationEngine {
 				currentTokenIndex--;
 				currentToken = tokens.get(currentTokenIndex);
 
+				// TODO VM look up variable from symbol table
+
 			}
 
 		}
@@ -886,6 +1074,15 @@ public class CompilationEngine {
 			currentToken = tokens.get(currentTokenIndex);
 			compileTerm();
 
+		}
+
+		if (isNeg) {
+			vm.writeUnary();
+
+		}
+		
+		if (isNot) {
+			vm.writeArithmetic("not");
 		}
 
 		writer.println("</term>");
@@ -909,7 +1106,7 @@ public class CompilationEngine {
 					compileExpression();
 					currentTokenIndex--;
 					currentToken = tokens.get(currentTokenIndex);
-					
+
 					expressionCount++;
 				}
 

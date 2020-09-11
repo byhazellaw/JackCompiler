@@ -8,6 +8,10 @@ public class VMWriter {
 	private PrintWriter pw;
 	private String className;
 	
+	
+	//this - class field variables
+	
+	
 	public VMWriter(String className) throws FileNotFoundException, UnsupportedEncodingException {
 		
 		this.className = className;
@@ -33,6 +37,7 @@ public class VMWriter {
 	
 	protected void writeArithmetic(String command) {
 		
+	
 		
 		if (command.equals("+")) {
 			
@@ -41,7 +46,7 @@ public class VMWriter {
 		} else if (command.equals("-")) {
 			
 			
-			pw.println("subtract");
+			pw.println("sub");
 			
 		} else if (command.equals("*")) {
 			
@@ -50,7 +55,20 @@ public class VMWriter {
 		} else if (command.equals("/")) {
 			
 			pw.println("call Math.divide 2");
+		} else if (command.equals("not")) {
+			
+			pw.println("not");
+		} else if (command.equals("&gt;")) {
+			
+			pw.println("gt");
+		} else if (command.equals("=")) {
+			
+			pw.println("eq");
+		} else if (command.equals("&amp;")) {
+			
+			pw.println("and");
 		}
+	
 	
 		
 	}
@@ -95,8 +113,8 @@ public class VMWriter {
 		pw.close();
 	}
 	
-	protected void test() {
+	protected void writeUnary() {
 		
-		pw.println("test");
+		pw.println("neg");
 	}
 }

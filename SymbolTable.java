@@ -92,7 +92,7 @@ public class SymbolTable {
 				}
 			}
 			
-		} else if (kind.equals("var")) {
+		} else if (kind.equals("local")) {
 			
 			for (Map.Entry<String, SymbolValues> entry : subroutineSymbol.entrySet()) {
 	
@@ -102,7 +102,7 @@ public class SymbolTable {
 				String kin = value.getKind();
 		
 				
-				if (kin.equals("var")) {
+				if (kin.equals("local")) {
 			
 					
 					count++;
@@ -127,7 +127,7 @@ public class SymbolTable {
 					
 					
 					count++;
-					System.out.println(count);
+					
 					
 					
 				}
@@ -202,7 +202,7 @@ public class SymbolTable {
 	
 	public void printSubSymbol(){
 		
-		System.out.println("subSymbol Size: " + subroutineSymbol.size());
+		
 		
 		for (Map.Entry<String, SymbolValues> entry : subroutineSymbol.entrySet()) {
 			
@@ -217,7 +217,7 @@ public class SymbolTable {
 	
 	public void printClassSymbol() {
 		
-		System.out.println("classSymbol Size: " + subroutineSymbol.size());
+		
 		
 		for (Map.Entry<String, SymbolValues> entry : classSymbol.entrySet()) {
 			
