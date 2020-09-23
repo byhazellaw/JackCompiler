@@ -9,13 +9,14 @@ public class VMWriter {
 	private String className;
 	
 	
-	//this - class field variables
 	
+	//static variables - static segment
+	//field variables - this
 	
-	public VMWriter(String className) throws FileNotFoundException, UnsupportedEncodingException {
+	public VMWriter(String className, String outFile) throws FileNotFoundException, UnsupportedEncodingException {
 		
 		this.className = className;
-		String outputFile = className + ".vm";
+		String outputFile = outFile + ".vm";
 		
 		pw = new PrintWriter(outputFile, "UTF-8");
 		
@@ -36,9 +37,7 @@ public class VMWriter {
 	
 	
 	protected void writeArithmetic(String command) {
-		
-	
-		
+			
 		if (command.equals("+")) {
 			
 			pw.println("add");
@@ -67,6 +66,12 @@ public class VMWriter {
 		} else if (command.equals("&amp;")) {
 			
 			pw.println("and");
+		} else if (command.equals("&lt;")) {
+			
+			pw.println("lt");
+		} else if (command.equals("|")) {
+			
+			pw.println("or");
 		}
 	
 	
@@ -116,5 +121,15 @@ public class VMWriter {
 	protected void writeUnary() {
 		
 		pw.println("neg");
+	}
+	
+	protected void writeMemoryAlloc() {
+		
+		pw.println("call Memory.alloc 1");
+	}
+	
+	protected void writeTest(String str) {
+		
+		pw.println(str);
 	}
 }

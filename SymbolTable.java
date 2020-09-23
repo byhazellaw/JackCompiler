@@ -151,10 +151,13 @@ public class SymbolTable {
 			return subroutineSymbol.get(name).getKind();
 			
 		
-		} else {
+		} else if (classSymbol.containsKey(name)) {
 			
 			return classSymbol.get(name).getKind();
 			
+		} else {
+			
+			return "NONE";
 		}
 		
 	}
