@@ -31,10 +31,9 @@ public class CompilationEngine {
 	private String subroutineCallClass = "";
 	private String subroutineCallMethod = "";
 
-	private boolean isSubCallMethod = false;
-	private boolean isObjMethod = false;
+	
 	private boolean isVoid = false;
-	private boolean isArrayVar = false;
+	
 
 	private VMWriter vm;
 
@@ -527,6 +526,7 @@ public class CompilationEngine {
 		writer.println("<letStatement>");
 
 		String varName = "";
+		boolean isArrayVar = false;
 
 		// let
 		printToken();
@@ -627,7 +627,7 @@ public class CompilationEngine {
 
 	}
 
-	// TODO - fix LABELS
+	
 	private void compileIf() {
 
 		ifLabelCount++;
@@ -792,8 +792,8 @@ public class CompilationEngine {
 	private void compileDo() {
 
 		writer.println("<doStatement>");
-		
-		
+		boolean isObjMethod = false;
+		boolean isSubCallMethod = false;
 		// do
 		printToken();
 		currentTokenIndex++;
@@ -1027,6 +1027,10 @@ public class CompilationEngine {
 		boolean isArrayIndex = false;
 		
 		
+		String subCallClass="";
+		
+		
+		
 		writer.println("<term>");
 
 		//TODO finish obj method calls
@@ -1048,7 +1052,7 @@ public class CompilationEngine {
 				classSymbolType = sym.typeOf(currentToken);
 				classSymbolName = currentToken;
 				int i = sym.indexOf(currentToken);
-				subroutineCallClass = classSymbolType;
+				subCallClass = classSymbolType;
 				
 
 				writer.println("<classVar_" + classSymbolKind + "_" + classSymbolType + "_" + i + ">" + currentToken
@@ -1069,9 +1073,7 @@ public class CompilationEngine {
 				subSymbolType = sym.typeOf(currentToken);
 				subSymbolName = currentToken;
 				int i = sym.indexOf(currentToken);
-//				subroutineCallClass = subSymbolType;
-				
-				
+
 				writer.println("<subVar_" + subSymbolKind + "_" + subSymbolType + "_" + i + ">" + currentToken
 						+ "</subVar_" + subSymbolKind + "_" + subSymbolType + "_" + i + ">");
 
@@ -1085,7 +1087,7 @@ public class CompilationEngine {
 
 			} else {
 
-				subroutineCallClass = currentToken;
+				subCallClass = currentToken;
 				writer.println("<subroutineCallClass>" + currentToken + "</subroutineCallClass>");
 
 			}
@@ -1186,7 +1188,7 @@ public class CompilationEngine {
 						
 						
 						
-						vm.writeCall(subroutineCallClass, subroutineCallMethod, expressionCount);
+						vm.writeCall(subCallClass, subroutineCallMethod, expressionCount);
 
 						printToken();
 						break;
@@ -1212,8 +1214,6 @@ public class CompilationEngine {
 				// reverse
 				currentTokenIndex--;
 				currentToken = tokens.get(currentTokenIndex);
-
-				// TODO VM look up variable from symbol table
 
 			}
 
@@ -1253,9 +1253,9 @@ public class CompilationEngine {
 
 		}
 
-//		subroutineCallClass="";
-		isArrayIndex = false;
 
+		isArrayIndex = false;
+		subCallClass = "";
 		writer.println("</term>");
 	}
 
