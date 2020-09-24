@@ -654,8 +654,6 @@ public class CompilationEngine {
 
 				compileExpression();
 
-				// VM - negate condition
-//				vm.writeArithmetic("not");
 
 				currentTokenIndex--;
 				currentToken = tokens.get(currentTokenIndex);
@@ -706,6 +704,7 @@ public class CompilationEngine {
 			// VM goto
 			vm.writeGoto("IF_END" + count);
 			// VM if FALSE
+			
 			vm.writeLabel("IF_FALSE" + count);
 
 			compileStatements();
@@ -720,11 +719,11 @@ public class CompilationEngine {
 
 			currentTokenIndex--;
 			currentToken = tokens.get(currentTokenIndex);
-			vm.writeLabel("IF_FALSE" + ifLabelCount);
+			vm.writeLabel("IF_FALSE" + count);
 
 		}
 
-//		vm.writeLabel("IF_FALSE" + ifLabelCount);
+
 
 		writer.println("</ifStatement>");
 
@@ -794,6 +793,8 @@ public class CompilationEngine {
 		writer.println("<doStatement>");
 		boolean isObjMethod = false;
 		boolean isSubCallMethod = false;
+		boolean isLibrary = false;
+		
 		// do
 		printToken();
 		currentTokenIndex++;
@@ -802,6 +803,7 @@ public class CompilationEngine {
 		// if varName is symbol
 		// push varName to the stack - method on obj
 		if (sym.getSubSymbol().containsKey(currentToken) || sym.getClassSymbol().containsKey(currentToken)) {
+			isObjMethod = true;
 			
 			if (sym.getSubSymbol().containsKey(currentToken)) {
 
@@ -813,8 +815,7 @@ public class CompilationEngine {
 					
 					vm.writePush("local", sym.indexOf(currentToken));
 					subroutineCallClass = sym.typeOf(currentToken);
-					isObjMethod = true;
-
+					
 				} else {
 
 					writer.println("<subVar_" + sym.kindOf(currentToken) + "_" + sym.indexOf(currentToken)
@@ -822,7 +823,7 @@ public class CompilationEngine {
 
 					vm.writePush("argument", sym.indexOf(currentToken));
 					subroutineCallClass = sym.typeOf(currentToken);
-					isObjMethod = true;
+					
 				}
 			} else {
 
@@ -833,7 +834,7 @@ public class CompilationEngine {
 
 					vm.writePush("this", sym.indexOf(currentToken));
 					subroutineCallClass = sym.typeOf(currentToken);
-					isObjMethod = true;
+					
 
 				} else {
 
@@ -842,27 +843,30 @@ public class CompilationEngine {
 
 					vm.writePush("static", sym.indexOf(currentToken));
 					subroutineCallClass = sym.typeOf(currentToken);
-					isObjMethod = true;
+					
 				}
 			}
-			// is library
+			// is library - 0 argument
 		} else if (Character.isUpperCase(currentToken.charAt(0))) {
-
-			writer.println("<subroutineCallClass>" + currentToken + "</subroutineCallClass>");
+			
+			isLibrary = true;
+			writer.println("<LibraryCallClass>" + currentToken + "</LibraryCallClass>");
 			subroutineCallClass = currentToken;
 
-			// is method
+			// is method - +1 expressionCount
 		} else {
 
 			writer.println("<subroutineCallMethod>" + currentToken + "</subroutineCallMethod>");
 			isSubCallMethod = true;
 			subroutineCallMethod = currentToken;
 			subroutineCallClass = className;
+			vm.writePush("pointer", 0);
 		}
 
 		currentTokenIndex++;
 		currentToken = tokens.get(currentTokenIndex);
 
+		//Obj/library calls only
 		if (currentToken.equals(".")) {
 
 			printToken();
@@ -897,6 +901,7 @@ public class CompilationEngine {
 			// ;
 			printToken();
 
+			//method Calls
 		} else {
 
 			
@@ -904,6 +909,8 @@ public class CompilationEngine {
 			currentTokenIndex++;
 			currentToken = tokens.get(currentTokenIndex);
 
+			expressionCount = 0;
+			
 			compileExpressionList();
 
 			printToken();
@@ -916,32 +923,24 @@ public class CompilationEngine {
 
 		
 		
-		// every VM method must return something -
-		// do - return value not relevant
-		// pop off return value to temp 0 from the stack because we don't want the
-		// return value
-		// TODO - fix argument on object methodcall
-		if (isSubCallMethod) {
+		//do get();		- subroutine method with class as subcallcall
+		//do bat.get();  - obj method
+		//do Screen.get();- 
+		if (isLibrary) {
 
-			vm.writePush("pointer", 0);
-
-			vm.writeCall(subroutineCallClass, subroutineCallMethod, 1);
-
-		} else if (isObjMethod) {
-			
-			
-			vm.writeCall(subroutineCallClass, subroutineCallMethod, 1);
-
-		} else {
-
-			
 			vm.writeCall(subroutineCallClass, subroutineCallMethod, expressionCount);
-		}
 
+		} else if (isObjMethod || isSubCallMethod) {
+
+			vm.writeCall(subroutineCallClass, subroutineCallMethod, expressionCount + 1);
+
+		}
+		isLibrary = false;
 		isObjMethod = false;
 		isSubCallMethod = false;
 		subroutineCallClass = "";
-
+		expressionCount=0;
+		
 		// do return value stores at temp 0 -
 		vm.writePop("temp", 0);
 
@@ -1025,7 +1024,7 @@ public class CompilationEngine {
 		boolean isNot = false;
 		boolean isNeg = false;
 		boolean isArrayIndex = false;
-		
+		boolean isLibrary = false;
 		
 		String subCallClass="";
 		
@@ -1087,6 +1086,11 @@ public class CompilationEngine {
 
 			} else {
 
+				if (Character.isUpperCase(currentToken.charAt(0))) {
+					
+					isLibrary = true;
+					
+				}
 				subCallClass = currentToken;
 				writer.println("<subroutineCallClass>" + currentToken + "</subroutineCallClass>");
 
@@ -1185,10 +1189,12 @@ public class CompilationEngine {
 
 						compileExpressionList();
 
+						if (isLibrary) {
+							vm.writeCall(subCallClass, subroutineCallMethod, expressionCount);
+						} else {
+							vm.writeCall(subCallClass, subroutineCallMethod, expressionCount+1);
+						}
 						
-						
-						
-						vm.writeCall(subCallClass, subroutineCallMethod, expressionCount);
 
 						printToken();
 						break;
@@ -1253,7 +1259,9 @@ public class CompilationEngine {
 
 		}
 
-
+		isLibrary = false;
+		isNot = false;
+		isNeg = false;
 		isArrayIndex = false;
 		subCallClass = "";
 		writer.println("</term>");
