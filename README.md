@@ -1,4 +1,4 @@
 # JackCompiler
-JackCompiler is a program that reads in Jack files and output VM files that the CPU Emulator can read. 
+Analyzes and compiles Jack Files into VM files on the Hack computer.
 
 Part of the Nand2Tetris course: https://www.nand2tetris.org
